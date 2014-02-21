@@ -17,20 +17,20 @@ def run_server():
         server_socket.listen(1)
 
         while True:
-            conn, client_address = server_socket.accept()
-
             try:
-                uri = parse_request(split_off_first_line(gather_request(conn)))
+                conn, client_address = server_socket.accept()
+                rq = gather_request(conn)
+                uri = parse_request(split_off_first_line(rq))
                 resource_file = map_URI(uri)
                 response = build_response(200, resource_file)
             except MethodNotAllowedError:
                 response = build_response(405, "Method not allowed")
             except NotFoundError:
                 response = build_response(404, "Not found")
-
-            return_to_user(conn, response)
-        conn.shutdown(socket.SHUT_WR)
-        conn.close()
+            finally:
+                conn.sendall(response)
+                conn.shutdown(socket.SHUT_WR)
+                conn.close()
 
     finally:
         server_socket.close()
@@ -41,13 +41,14 @@ def gather_request(conn):
     while True:
         buff = conn.recv(32)
         accu += buff
-        if len(buff) <= 32:
-            return accu + buff
+        if accu[-4:] == "\r\n\r\n":
+        # if not buff:
+            conn.shutdown(socket.SHUT_RD)
+            return accu
 
 
 def split_off_first_line(request):
-    idx = request.find('\r\n')
-    return request[:idx]
+    return request.split('\r\n')[0]
 
 
 def parse_request(header):
@@ -60,8 +61,7 @@ def parse_request(header):
 def map_URI(uri):
     if os.path.isfile("webroot" + uri) or os.path.isdir("webroot" + uri):
         return "webroot" + uri
-    else:
-        raise NotFoundError("Not found")
+    raise NotFoundError("Not found")
 
 
 def build_response(code, resource_file):
@@ -72,8 +72,8 @@ def build_response(code, resource_file):
         file_type = guess_type(resource_file)[0]
         if file_type:
             h3 = "Content-Type: %s" % file_type
-            filein = open(resource_file, 'rb')
-            long_string = filein.read()
+            with open(resource_file, 'rb') as filein:
+                long_string = filein.read()
         else:
             h3 = "Content-Type: text/plain"
             long_string = resource_file[7:]
@@ -85,10 +85,6 @@ def build_response(code, resource_file):
             " Error: " + code_table[code] + "</h1>\n</body>\n</html>\n\n"
     h4 = "Content-Length: " + str(len(long_string))
     return '%s\r\n%s\r\n%s\r\n%s\r\n\r\n%s' % (h1, h2, h3, h4, long_string)
-
-
-def return_to_user(conn, msg):
-    conn.sendall(msg)
 
 
 class ExceptionTemplate(Exception):

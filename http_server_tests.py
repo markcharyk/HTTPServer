@@ -1,6 +1,58 @@
 from email.utils import formatdate
+import socket
 import unittest
 import http_server
+import test_client
+
+
+class testGatherData(unittest.TestCase):
+    def setUp(self):
+        self.server_socket = socket.socket(
+            socket.AF_INET,
+            socket.SOCK_STREAM,
+            socket.IPPROTO_IP
+            )
+        try:
+            address = ('127.0.0.1', 50000)
+            self.server_socket.bind(address)
+            self.server_socket.listen(1)
+        finally:
+            pass
+
+    def tearDown(self):
+        self.conn.close()
+        self.server_socket.close()
+
+    def testMessages(self):
+        sent_list = ["tiny little thing\r\n\r\n", "really really really really really really long thing\r\n\r\n", "A thirty-two byte message eh\r\n\r\n"]
+        received_list = []
+        # The above messages must be manually sent via a separate terminal
+        # Using the commands:
+        # >>>import test_client
+        # >>>test_client.run_client("tiny little thing\r\n\r\n")
+        # >>>test_client.run_client("really really really really really really long thing\r\n\r\n")
+        # >>>test_client.run_client("A thirty-two byte test message\r\n")
+        for i in xrange(3):
+            self.conn, client_address = self.server_socket.accept()
+            received_list.append(http_server.gather_request(self.conn))
+            self.conn.shutdown(socket.SHUT_WR)
+        self.assertItemsEqual(sent_list, received_list)
+
+    # def testShortMessage(self):
+    #     message = "tiny little thing"
+    #     received = http_server.gather_request(self.conn)
+    #     self.assertEqual(message, received)
+
+    # def testLongMessage(self):
+    #     message = "really really really really really really long thing"
+    #     received = http_server.gather_request(self.conn)
+    #     self.assertEqual(message, received)
+
+    # def testBufferMessage(self):
+    #     message = "A tested thirty-two byte message"
+    #     received = http_server.gather_request(self.conn)
+    #     self.assertEqual(message, received)
+
 
 
 class testSplitFirstLine(unittest.TestCase):
