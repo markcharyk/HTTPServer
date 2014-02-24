@@ -27,7 +27,7 @@ class testGatherData(unittest.TestCase):
         sent_list = ["tiny little thing\r\n\r\n", "really really really really really really long thing\r\n\r\n", "A thirty-two byte message eh\r\n\r\n"]
         received_list = []
         # The above messages must be manually sent via a separate terminal
-        # Using the commands:
+        # Using the following commands in the Python interpreter:
         # >>>import test_client
         # >>>test_client.run_client("tiny little thing\r\n\r\n")
         # >>>test_client.run_client("really really really really really really long thing\r\n\r\n")
@@ -37,21 +37,6 @@ class testGatherData(unittest.TestCase):
             received_list.append(http_server.gather_request(self.conn))
             self.conn.shutdown(socket.SHUT_WR)
         self.assertItemsEqual(sent_list, received_list)
-
-    # def testShortMessage(self):
-    #     message = "tiny little thing"
-    #     received = http_server.gather_request(self.conn)
-    #     self.assertEqual(message, received)
-
-    # def testLongMessage(self):
-    #     message = "really really really really really really long thing"
-    #     received = http_server.gather_request(self.conn)
-    #     self.assertEqual(message, received)
-
-    # def testBufferMessage(self):
-    #     message = "A tested thirty-two byte message"
-    #     received = http_server.gather_request(self.conn)
-    #     self.assertEqual(message, received)
 
 
 
