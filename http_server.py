@@ -52,15 +52,16 @@ def split_off_first_line(request):
 
 
 def parse_request(header):
-    word_list = header.split(" ")
+    word_list = header.split()
     if word_list[0] != 'GET':
         raise MethodNotAllowedError("Method not allowed")
     return word_list[1]
 
 
 def map_URI(uri):
-    if os.path.isfile("webroot" + uri) or os.path.isdir("webroot" + uri):
-        return "webroot" + uri
+    filepath = "webroot%s" % uri
+    if os.path.isfile(filepath) or os.path.isdir(filepath):
+        return filepath
     raise NotFoundError("Not found")
 
 

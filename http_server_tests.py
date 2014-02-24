@@ -39,7 +39,6 @@ class testGatherData(unittest.TestCase):
         self.assertItemsEqual(sent_list, received_list)
 
 
-
 class testSplitFirstLine(unittest.TestCase):
     def setUp(self):
         self.input = "GET /index.html HTTP/1.1\r\nmore data more data more data\r\n\r\n"
