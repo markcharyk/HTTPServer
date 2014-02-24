@@ -4,7 +4,7 @@ from email.utils import formatdate
 from mimetypes import guess_type
 
 
-def run_server():
+def run_server(root_dir):
     # Socket set-up
     server_socket = socket.socket(
         socket.AF_INET,
@@ -21,12 +21,14 @@ def run_server():
                 conn, client_address = server_socket.accept()
                 rq = gather_request(conn)
                 uri = parse_request(split_off_first_line(rq))
-                resource_file = map_URI(uri)
-                response = build_response(200, resource_file)
+                file_type, body = map_URI(root_dir, uri)
+                response = build_response(200, file_type, body)
             except MethodNotAllowedError:
-                response = build_response(405, "Method not allowed")
+                response = build_response(405, "text/html")
             except NotFoundError:
-                response = build_response(404, "Not found")
+                response = build_response(404, "text/html")
+            except:
+                response = build_response(500, "text/html")
             finally:
                 conn.sendall(response)
                 conn.shutdown(socket.SHUT_WR)
@@ -58,34 +60,42 @@ def parse_request(header):
     return word_list[1]
 
 
-def map_URI(uri):
-    filepath = "webroot%s" % uri
-    if os.path.isfile(filepath) or os.path.isdir(filepath):
-        return filepath
-    raise NotFoundError("Not found")
-
-
-def build_response(code, resource_file):
-    code_table = {200: 'OK', 404: 'Not found', 405: 'Method not allowed'}
-    h1 = "HTTP/1.1 %d %s" % (code, code_table[code])
-    h2 = 'Date: %s' % formatdate(usegmt=True)
-    if code == 200:
-        file_type = guess_type(resource_file)[0]
-        if file_type:
-            h3 = "Content-Type: %s" % file_type
-            with open(resource_file, 'rb') as filein:
-                long_string = filein.read()
-        else:
-            h3 = "Content-Type: text/plain"
-            long_string = resource_file[7:]
-            for i in os.listdir(resource_file):
-                long_string += '\r\n\t' + i
+def map_URI(root, uri):
+    filename = root + uri
+    if os.path.isfile(filename):
+        content_type = guess_type(filename)[0]
+        with open(filename, 'rb') as filein:
+            bytes_read = filein.read()
+    elif os.path.isdir(filename):
+        content_type = "text/plain"
+        bytes_read = uri
+        while bytes_read.endswith('/'):
+            bytes_read = bytes_read[:-1]
+        for i in os.listdir(filename):
+            bytes_read += '\r\n\t' + i
     else:
-        h3 = "Content-Type: text/html"
-        long_string = "<!DOCTYPE html>\n<html>\n<body>\n<h1>" + str(code) +\
+        raise NotFoundError("Not found")
+    return (content_type, bytes_read)
+
+
+def build_response(code, file_type, body=''):
+    code_table = {
+        200: 'OK',
+        404: 'Not found',
+        405: 'Method not allowed',
+        500: 'Some idiot built this server incorrectly'
+        }
+    response = []
+    response.append("HTTP/1.1 %d %s" % (code, code_table[code]))
+    response.append('Date: %s' % formatdate(usegmt=True))
+    response.append("Content-Type: %s" % file_type)
+    if code != 200:
+        body += "<!DOCTYPE html>\n<html>\n<body>\n<h1>" + str(code) +\
             " Error: " + code_table[code] + "</h1>\n</body>\n</html>\n\n"
-    h4 = "Content-Length: " + str(len(long_string))
-    return '%s\r\n%s\r\n%s\r\n%s\r\n\r\n%s' % (h1, h2, h3, h4, long_string)
+    response.append(("Content-Length: %d" % len(body)))
+    response.append('') 
+    response.append(body)
+    return '\r\n'.join(response)
 
 
 class ExceptionTemplate(Exception):
@@ -102,4 +112,4 @@ class NotFoundError(ExceptionTemplate):
 
 
 if __name__ == '__main__':
-    run_server()
+    run_server("webroot")
